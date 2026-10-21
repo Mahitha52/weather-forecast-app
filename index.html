@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather Forecast App</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; padding: 25px;
+  font-family: Arial, sans-serif; color: #fff;
+  background: linear-gradient(135deg, #162447, #1f8a9e);
+  display: flex; justify-content: center; align-items: center;
+}
+.app {
+  width: 100%; max-width: 420px; padding: 28px;
+  border-radius: 24px; text-align: center;
+  background: rgba(255,255,255,.13);
+  box-shadow: 0 12px 35px rgba(0,0,0,.2);
+}
+h1 { font-size: 27px; }
+.search { display: flex; gap: 8px; }
+input {
+  min-width: 0; flex: 1; padding: 12px;
+  border: none; border-radius: 10px;
+}
+button {
+  padding: 12px; border: none; border-radius: 10px;
+  background: #ffd166; color: #17324d;
+  font-weight: bold; cursor: pointer;
+}
+#icon { font-size: 55px; margin: 12px 0; }
+#temp { font-size: 48px; margin: 5px; }
+#details {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; margin-top: 22px;
+}
+.detail {
+  padding: 15px 8px; border-radius: 14px;
+  background: rgba(255,255,255,.12);
+}
+#message { min-height: 22px; }
+footer { margin-top: 24px; font-size: 12px; opacity: .8; }
+</style>
+</head>
+<body>
+<main class="app">
+  <h1>🌤️ Weather Forecast</h1>
+  <p>Discover the weather in your city</p>
+  <form class="search" id="searchForm">
+    <input id="city" placeholder="Enter city name" value="Hyderabad"
+      aria-label="City name" required>
+    <button type="submit">Search</button>
+  </form>
+  <p id="message" role="status">Loading weather...</p>
+  <h2 id="place">Hyderabad</h2>
+  <div id="icon">🌤️</div>
+  <p id="temp">--°C</p>
+  <p id="condition">Current weather</p>
+  <section id="details">
+    <div class="detail">🤔 Feels like<br><strong id="feels">--°C</strong></div>
+    <div class="detail">💧 Humidity<br><strong id="humidity">--%</strong></div>
+    <div class="detail">💨 Wind speed<br><strong id="wind">-- km/h</strong></div>
+    <div class="detail">🌧️ Precipitation<br><strong id="rain">-- mm</strong></div>
+  </section>
+  <footer>Weather data: Open-Meteo</footer>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+
+function describe(code) {
+  if (code === 0) return ["☀️", "Clear sky"];
+  if ([1, 2].includes(code)) return ["🌤️", "Mostly clear"];
+  if (code === 3) return ["☁️", "Cloudy"];
+  if ([45, 48].includes(code)) return ["🌫️", "Foggy"];
+  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code))
+    return ["🌧️", "Rainy"];
+  if ([71, 73, 75, 77, 85, 86].includes(code))
+    return ["❄️", "Snow"];
+  if ([95, 96, 99].includes(code)) return ["⛈️", "Thunderstorm"];
+  return ["🌡️", "Variable conditions"];
+}
+
+async function loadWeather(city) {
+  $("message").textContent = "Finding your city...";
+  try {
+    const geoUrl = "https://geocoding-api.open-meteo.com/v1/search?name="
+      + encodeURIComponent(city) + "&count=1&language=en&format=json";
+    const geoResponse = await fetch(geoUrl);
+    if (!geoResponse.ok) throw new Error("Could not search cities.");
+    const geo = await geoResponse.json();
+    if (!geo.results?.length) throw new Error("City not found. Try again.");
+
+    const location = geo.results[0];
+    $("message").textContent = "Loading forecast...";
+    const url = "https://api.open-meteo.com/v1/forecast?latitude="
+      + location.latitude + "&longitude=" + location.longitude
+      + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m";
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Weather service unavailable.");
+    const data = await response.json();
+    const w = data.current;
+    const [emoji, text] = describe(w.weather_code);
+
+    $("place").textContent = location.name + ", " + (location.country || "");
+    $("icon").textContent = emoji;
+    $("temp").textContent = Math.round(w.temperature_2m) + "°C";
+    $("condition").textContent = text;
+    $("feels").textContent = Math.round(w.apparent_temperature) + "°C";
+    $("humidity").textContent = w.relative_humidity_2m + "%";
+    $("wind").textContent = w.wind_speed_10m + " km/h";
+    $("rain").textContent = w.precipitation + " mm";
+    $("message").textContent = "Weather updated successfully!";
+  } catch (error) {
+    $("message").textContent = error.message
+      || "Unable to load weather. Check your internet.";
+  }
+}
+
+$("searchForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const city = $("city").value.trim();
+  if (city) loadWeather(city);
+});
+
+loadWeather("Hyderabad");
+</script>
+</body>
+</html>
